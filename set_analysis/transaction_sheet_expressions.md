@@ -229,7 +229,7 @@ Last_Week =
 All four issue types repeat across multiple KPIs, which suggests these variables were built by copy-pasting one block and adjusting field names — a fast way to build, but also how the same bugs propagated three or four times over. Rather than patching each variable individually:
 
 1. **Fix the `-6` → `-7` boundary once**, then re-check every `vpriorweek...` variable in this document for the same pattern.
-2. **Add the missing date filter to Velocity Outliers' current-week expression** — this is the one真正 functional bug (not just an edge-case overlap), since right now it's silently comparing all-time data against a windowed prior week.
+2. **Add the missing date filter to Velocity Outliers' current-week expression** — this is the one genuinely functional bug (not just an edge-case overlap), since right now it's silently comparing all-time data against a windowed prior week.
 3. **Fix the cross-referenced variable bug in Transaction Count's `TransactionCount_WoW`** (`vwowpercentagevalue` → `vwowpercentagevalue_distcounttransaction`).
 4. **Standardize `DISTINCT` usage** — pick one convention (recommend: always `DISTINCT` on `transaction_id`, since it's technically redundant given the primary key but harmless, and consistent is safer than mixed) and apply it everywhere.
 5. **Decide whether Velocity Outliers should be count-based or volume-based**, and make sure the KPI card and the Outlier Accounts table underneath it use the same logic — right now the KPI card here is count-based/legacy while the table (per earlier work in this project) was switched to volume-based.

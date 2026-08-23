@@ -106,11 +106,5 @@ This matters for troubleshooting, because each stage fails in a different way:
 So if A fails, check its QlikView log for a SQL/connection error (see below).
 If B or C fails, the SQL log tail won't show anything useful — look instead for a QVD path issue or a script logic error in that app's own log.
 
-## What happens when a data source (e.g. a SQL extract) fails
+## NB: Make sure the connection of the extract application is working properly
 
-When a `LOAD`/`SELECT` inside the `.qvw` can't connect to its database:
-
-1. **If QlikView is set to "Pause on Error"**, it shows an interactive dialog and hangs — the script just waits until `TIMEOUT_SECONDS` runs out. **Set "Close on Error"** (`Tools > User Preferences > General`) so QlikView exits immediately instead.
-2. **The script's own captured `stdout`/`stderr` usually won't contain the real SQL error** — QlikView writes reload details to its own log file next to the `.qvw` (e.g. `Qvw1.qvw.log`), not to the console.
-3. **To see the actual error**, the script now reads the tail of that QlikView log file whenever a reload fails or times out, and writes it into `etl_chain.log`. This requires **document logging to be enabled** in the `.qvw`'s script/reload settings — otherwise no `.log` file exists to read.
-4. The chain still halts immediately (B and C don't run) — this just makes sure you can see *why* A failed without opening QlikView manually.

@@ -1,5 +1,5 @@
 // ============================================================================
-// EXTRACT LAYER - Qlik Sense / QlikView Load Scripts
+// EXTRACT LAYER - QlikView Load Scripts
 // ============================================================================
 // Purpose : Extract raw data from the Bank SQL database and store as QVDs
 // Layer   : Extract (E)

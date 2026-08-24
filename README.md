@@ -85,16 +85,14 @@ Dashboard screenshots live in `/screenshots/`, one per sheet/object, for anyone 
 
 ## Automation — Reload & Error Checking
 
-Notes on how the QlikView document reload is scheduled and what's checked automatically to catch data/load issues before anyone views the dashboard.
+The ETL chain is automated with a Python script (`etl_chain.py`) that is triggered by **Windows Task Scheduler**.  
+It reloads the three QlikView models in strict sequence and stops immediately if any stage fails.
 
-- **Reload schedule:** *(document the actual schedule here — e.g., QlikView Publisher task, Windows Task Scheduler + batch reload, frequency)*
-- **Error checking on reload:** *(document what's checked — e.g., row count sanity checks after load, `TRACE` statements in the script logging table row counts, alerts on synthetic key detection, script-level validation that `Max(date_transaction)` returns a real recent date rather than null/stale)*
-- **Known fragile points to monitor:**
-  - `transaction_datetime` parsing — confirm new source data doesn't reintroduce the null-parsing issue noted above
-  - Synthetic keys — reload log should be checked for any new synthetic key warnings, since the current model was specifically built to avoid a circular reference; a new field addition could reintroduce one
-  - Row counts per table, compared against the prior reload, to catch a failed/partial data pull early
+### Reload schedule
+- Triggered by **Windows Task Scheduler**
+- Runs the Python script `etl_chain.py`
+- Chain order: **Extract → Stage (Transform) → Presentation**
 
-*(Fill in the actual reload mechanism and checks once set up — this section is a placeholder structure to complete.)*
 
 ## Status
 Transaction Flow sheet: built and functional. Loans sheet: KPIs and core charts built. Layout/alignment pass in progress.

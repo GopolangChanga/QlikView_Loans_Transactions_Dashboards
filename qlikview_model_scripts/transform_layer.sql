@@ -1,5 +1,5 @@
 // ============================================================================
-// TRANSFORM LAYER - Qlik Sense / QlikView Load Scripts
+// TRANSFORM LAYER - QlikView Load Scripts
 // ============================================================================
 // Purpose : Clean, enrich and standardise data from Extract QVDs
 // Layer   : Transform (T)

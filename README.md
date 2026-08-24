@@ -62,7 +62,7 @@ Thresholds: `z > 3` = Outlier, `z > 2` = Elevated, else Normal. Implemented via 
 
 ## Validation Scripts
 
-SQL queries used to sanity-check QlikView expressions against the raw source data before trusting them on the dashboard (see `/validation/` folder).
+SQL queries used to sanity-check QlikView expressions against the raw source data before trusting them on the dashboard (see `/sql_validation/` folder).
 
 | Script | Purpose |
 |---|---|

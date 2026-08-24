@@ -1,6 +1,6 @@
 # QlikView KPI Expressions — Transaction Flow Sheet
 
-Reference for all 4 top-row KPI cards: variables, display formatting, WoW delta logic, and comparison text. Each variable is documented with what it does; real issues found while packaging this are flagged inline as `-- ISSUE:` so they don't get silently carried into the next edit.
+Reference for all 4 top-row KPI cards: variables, display formatting, WoW delta logic, and comparison text. 
 
 Shared abbreviation pattern used throughout (B/M/K formatting) is repeated per KPI rather than a single shared function, since QlikView variables can't take parameters — worth knowing this is intentional duplication, not an oversight.
 
@@ -143,8 +143,6 @@ Avg Ticket Size_WoW =
         )
     )
 ```
-
-Good — this block correctly references its own `vwowpercentagevalue_avg_transaction_amnt` in the middle branch. This is the one KPI of the three that **doesn't** have the cross-referenced-variable bug found in Transaction Count above — worth comparing the two side by side when fixing it, since this block shows what the corrected version should look like.
 
 ```qlik
 Last_Week =

@@ -27,7 +27,7 @@ QV_PATH = Path(r"C:\Program Files\QlikView\qv.exe")
 MODELS = [
     (Path(r"LongPath\Bank_Stage.qvw"), "Extraction_QlikView: Bank_Extract"),   # TODO: verify this path — currently points to Bank_Stage.qvw, not an "Extract" file
     (Path(r"LongPath\Bank_Stage.qvw"), "Stage_QlikView: Bank_Stage"),
-    (Path(r"LongPath\Bank_Dashbaord.qvw"), "Presentation_QlikView: Bank_Dashbaord")
+    (Path(r"LongPath\Bank_Dashbaord.qvw"), "Presentation_QlikView: Bank_Dashboard")
 ]
 
 # Where the run log gets written. Consider anchoring this to the script's

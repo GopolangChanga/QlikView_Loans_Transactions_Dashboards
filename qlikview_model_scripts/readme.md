@@ -4,23 +4,30 @@ Three-layer ETL scripts for loading and modelling banking data in **Qlik Sense /
 
 ## Architecture
 
-SQL Server (Bank.dbo.*)
-│
-▼
-┌─────────────────────┐
-│  01 – Extract       │  → Raw QVDs  ($(vQVD_E_Directory))
-└─────────────────────┘
-│
-▼
-┌─────────────────────┐
-│  02 – Transform     │  → Cleaned / enriched QVDs  ($(vQVD_T_Directory))
-└─────────────────────┘
-│
-▼
-┌─────────────────────┐
-│  03 – Presentation  │  → Final in-memory data model
-└─────────────────────┘
-
+┌─────────────────────────────────────────────────────────────┐
+│                    SQL Server (Bank.dbo.*)                  │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  01 – Extract Layer                                         │
+│  Raw load from SQL tables                                   │
+│  Output → Raw QVDs  ($(vQVD_E_Directory))                   │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  02 – Transform Layer                                       │
+│  Clean • Standardise • Enrich                               │
+│  Output → Cleaned QVDs  ($(vQVD_T_Directory))               │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  03 – Presentation Layer                                    │
+│  Final star-schema data model                               │
+│  Output → In-memory model (Dimensions + Facts)              │
+└─────────────────────────────────────────────────────────────┘
 
 
 ## Files

@@ -41,7 +41,17 @@ Source schema is a standard relational banking model — customers can hold mult
 - **Bank Card Type by Volume:** null/blank `card_type` values are relabeled "Invalid" rather than left blank
 
 ### Loans
-- Portfolio value, avg loan size, avg interest rate, customer credit score distribution, and a large-loans/credit-score watchlist table
+- **KPI row:** Portfolio Value, Avg Loan Size, Avg Interest Rate, Concentration (Top 10%) — all four locked to the current/latest year (`Year_loan = Max(Year_loan)`), each with a YoY delta and "vs [X] Prior Year" comparison line. Originally the headline value on each card was unfiltered (reflecting whatever years were selected) while the delta was always single-year — fixed so every card consistently represents the latest year, regardless of selections
+- **Top 10 Customers by Loan Amount:** grouped by `customer_id & fullname` combined, not `fullname` alone — the dataset has multiple distinct customers sharing the same generated name (e.g. several different "Aaron Cruz" records), which was silently merging different people's loan totals together on the original build
+- **Loan Amount by City and Account Type:** breakdown across the two dimensions, `Invalid` used for blank/null account types, consistent with the Transaction Flow sheet's null-handling convention
+- **Monthly Originations — YoY Overlay:** current year vs. prior year, aligned by month
+- **Risk-Value Segmentation (scatter):** customers bucketed into Prime / Watch / Sub-prime by fixed credit-score bands (≥740 / 670–739 / <670 — standard industry convention, not a statistical threshold like the Transaction sheet's z-scores)
+- **Avg Interest Rate by Credit Score Band:** tests whether riskier customers are actually priced with higher rates — see finding below
+- **Watchlist — Sub-Prime, High Exposure:** filtered to Sub-prime only using set analysis directly inside each expression (`{<credit_score={"<670"}>}`) — this row-filtering approach worked reliably, unlike the calculated-dimension + Suppress-When-Null method attempted on the Transaction sheet's Outlier Accounts table
+
+**Notable finding, not a bug:** Avg Interest Rate by Credit Score Band came out nearly flat and backwards (Prime 8.58%, Sub-prime 8.46%, Watch 8.51%) — Sub-prime should carry the highest rate in real-world risk-based pricing. Most likely explanation: `interest_rate` was generated independently of `credit_score` in this synthetic dataset, so there's no real pricing relationship to find. Documented as a data limitation rather than something to force a "fix" for.
+
+**Open issue:** Risk-Value Segmentation scatter renders almost every bubble red (Sub-prime) across the full 300–800 credit score range, including bubbles that should read Watch/Prime around 700–750 — the color-by-expression logic needs a second look against the `Class(credit_score, 50)` bucketing driving the chart.
 
 ## Key Calculation — Account Segmentation (Z-Score)
 
@@ -55,6 +65,28 @@ Thresholds: `z > 3` = Outlier, `z > 2` = Elevated, else Normal. Implemented via 
 
 **Caveat:** this is a statistical proxy, not a fraud determination — the schema has no fraud/status field. It flags accounts worth a closer look, nothing more.
 
+## Key Calculation — Loans KPI Year-Locking
+
+All four Loans sheet KPIs are explicitly filtered to the current/latest year:
+
+```
+Sum({<Year_loan={$(=Max(Year_loan))}>} loan_amount)
+```
+
+rather than left to respond to whatever's currently selected on the sheet. This was a deliberate fix — the original build had each KPI's headline value unfiltered (so a 2-year selection would show a 2-year combined total) while the YoY delta beneath it was always a strict single-year comparison, producing numbers that visibly didn't reconcile with each other. Every KPI on this sheet, including Concentration (Top 10%), now follows the same rule for consistency, even though Concentration could arguably be treated as a longer-term structural metric rather than a per-year one — validated against SQL at ~20% for the current year (see `SQL_Validation_Queries.md`).
+
+## Key Calculation — Credit Risk Segmentation (Prime / Watch / Sub-prime)
+
+Unlike the Transaction sheet's statistical z-score segmentation, Loans risk segmentation uses **fixed, industry-standard credit score bands**, not a calculation relative to the dataset's own distribution:
+
+```
+Prime:      credit_score >= 740
+Watch:      670 <= credit_score < 740
+Sub-prime:  credit_score < 670
+```
+
+These thresholds are a standard convention, not derived from this data.
+
 ## Design Notes
 - Palette: ink navy `#0F1E33` panels, paper `#EDEAE1` background, gold `#B8863B` accent, teal `#2E6F62` / crimson `#9C3B3B` for segment coloring
 - Typeface: Georgia (serif) for headers, monospace for tabular/numeric values
@@ -62,15 +94,18 @@ Thresholds: `z > 3` = Outlier, `z > 2` = Elevated, else Normal. Implemented via 
 
 ## Validation Scripts
 
-SQL queries used to sanity-check QlikView expressions against the raw source data before trusting them on the dashboard (see `/sql_validation/` folder).
+SQL queries used to sanity-check QlikView expressions against the raw source data before trusting them on the dashboard. Full queries in `SQL_Validation_Queries.md` (also split into individual files under `/validation/`).
 
-| Script | Purpose |
-|---|---|
-| `validate_weekly_totals.sql` | Confirms `Sum(transaction_amount)` per day matches the QlikView WoW KPI cards |
-| `validate_top_accounts.sql` | Top 10 accounts by `Sum(amount_usd)` per week — used to catch the count-vs-volume ranking bug (see Key Calculation notes above) |
-| `validate_date_ranges.sql` | Confirms the 7-day set analysis windows (`Max(date)-6` to `Max(date)`, and the prior-week equivalent) return non-overlapping, correct row counts |
-
-*(Add scripts to a `/validation/` folder in this repo as they're written; list them here with a one-line description of what each one checks.)*
+| Script | Sheet | Purpose |
+|---|---|---|
+| `validate_date_ranges.sql` | Transactions | Confirms the 7-day set analysis windows are correctly bounded and non-overlapping |
+| `validate_weekly_totals.sql` | Transactions | This week vs last week `Sum(transaction_amount)`, matches Total Volume KPI |
+| `validate_kpis.sql` | Transactions | Core 3 KPIs + both Velocity Outliers variants (legacy count-based, current volume-based) |
+| `validate_merchant_pareto.sql` | Transactions | Top 10 merchant concentration + a corrected TRUE cumulative % (original was per-merchant % of total, not cumulative) |
+| `validate_weekly_volume_day_of_week.sql` | Transactions | Current vs prior week by weekday; caught the same 1-day overlap bug found in the KPI expressions |
+| `validate_card_type_and_top_accounts.sql` | Transactions | Null-safe card type grouping; Top 5 accounts ranked by volume, not count |
+| `validate_loans_kpis.sql` | Loans | Portfolio Value / Avg Loan Size / Avg Interest Rate / Concentration, year-filtered to match the QlikView cards |
+| `validate_top_customers_by_loan.sql` | Loans | Top 10 customers by loan amount + an automated name-collision check |
 
 ## Screenshots
 
@@ -80,19 +115,26 @@ Dashboard screenshots live in `/screenshots/`, one per sheet/object, for anyone 
 - `screenshots/loans-overview.png`
 - `screenshots/merchant-pareto.png`
 - `screenshots/account-volume-segments.png`
+- `screenshots/loans-kpi-row.png`
+- `screenshots/top-10-customers-by-loan.png`
+- `screenshots/risk-value-segmentation.png`
+- `screenshots/watchlist-sub-prime.png`
 
 *(Update this list as screenshots are added — filenames should describe the object, not just "screenshot1.png", so they're identifiable without opening each one.)*
 
 ## Automation — Reload & Error Checking
 
-The ETL chain is automated with a Python script (`etl_chain.py`) that is triggered by **Windows Task Scheduler**.  
-It reloads the three QlikView models in strict sequence and stops immediately if any stage fails.
+Notes on how the QlikView document reload is scheduled and what's checked automatically to catch data/load issues before anyone views the dashboard.
 
-### Reload schedule
-- Triggered by **Windows Task Scheduler**
-- Runs the Python script `etl_chain.py`
-- Chain order: **Extract → Stage (Transform) → Presentation**
+- **Reload schedule:** *(document the actual schedule here — e.g., QlikView Publisher task, Windows Task Scheduler + batch reload, frequency)*
+- **Error checking on reload:** *(document what's checked — e.g., row count sanity checks after load, `TRACE` statements in the script logging table row counts, alerts on synthetic key detection, script-level validation that `Max(date_transaction)`/`Max(date_loan)` return real recent dates rather than null/stale)*
+- **Known fragile points to monitor:**
+  - `transaction_datetime` parsing — confirm new source data doesn't reintroduce the null-parsing issue noted above
+  - Synthetic keys — reload log should be checked for any new synthetic key warnings, since the current model was specifically built to avoid a circular reference; a new field addition could reintroduce one
+  - Row counts per table, compared against the prior reload, to catch a failed/partial data pull early
+  - Name collisions — re-run `validate_top_customers_by_loan.sql`'s collision check after any reload; new synthetic customer records could introduce new shared names
 
+*(Fill in the actual reload mechanism and checks once set up — this section is a placeholder structure to complete.)*
 
 ## Status
-Transaction Flow sheet: built and functional. Loans sheet: KPIs and core charts built. Layout/alignment pass in progress.
+Transaction Flow sheet: built and functional, layout/alignment complete. Loans sheet: all KPIs and core charts built and validated against SQL; one open visual bug (Risk-Value Segmentation scatter coloring) and one data-limitation finding (flat/backwards risk pricing) documented above.

@@ -24,6 +24,10 @@ Design reference for building and extending the Transaction Flow and Loans dashb
 - Elevated / Watch → Gold `#B8863B`
 - Outlier / Sub-prime → Crimson `#9C3B3B`
 
+**Two different segmentation methods share this same color convention — don't confuse them:**
+- **Statistical (Transaction sheet):** z-score relative to the dataset's own mean/stddev (e.g. Velocity Outliers, Account Volume Segments). Thresholds are `z > 2` / `z > 3`, derived from the data itself.
+- **Fixed-band (Loans sheet):** industry-standard credit score cutoffs (Prime ≥740, Watch 670–739, Sub-prime <670) — a convention, not something calculated from this dataset's distribution. Same visual treatment, different underlying logic — worth knowing which one a given object uses before trying to "fix" a threshold that isn't actually derived from the data.
+
 **Delta color convention (KPI cards only, not segments):**
 - Up → Green `#7FBF9E`
 - Down → Coral `#E38A8A`
@@ -59,6 +63,8 @@ Every KPI card follows the same fixed structure, top to bottom:
 
 **Explicitly excluded from the standard card:** embedded sparklines. Tested and dropped — two QlikView objects glued together to fake one embedded chart drift out of alignment whenever the sheet is resized, and the maintenance cost across multiple KPI cards wasn't worth it. If trend context is needed, use a shared trend chart elsewhere on the sheet instead of per-card sparklines.
 
+**KPI scope rule — lock every card to the same period, don't let it drift with ambient selections.** On the Loans sheet, the headline value on each KPI was originally left unfiltered (so it reflected whatever years happened to be selected), while the delta beneath it always compared a single year vs. the prior year — producing a headline and a delta that silently disagreed with each other the moment more than one year was selected. Fix: every KPI's headline value uses the same year/period filter as its own delta (e.g. `Sum({<Year_loan={$(=Max(Year_loan))}>} loan_amount)`), so the number, the delta, and the comparison line always describe the same period, regardless of what else is selected on the sheet.
+
 Card background: Ink Navy, no border, subtle corner radius if the object type supports it.
 
 ---
@@ -92,6 +98,14 @@ Card background: Ink Navy, no border, subtle corner radius if the object type su
   6. Detail table, full width
   7. Footnote (schema limitations), full width, small text
 
+- **Standard sheet row order** (Loans sheet, as built):
+  1. Header (title + source-basis line) + Year/Quarter/Week drill list box
+  2. KPI row (4 cards: Portfolio Value, Avg Loan Size, Avg Interest Rate, Concentration)
+  3. Row 3: Loan Amount by City & Account Type + Monthly Originations YoY, side by side
+  4. Row 4: Risk-Value Segmentation + Avg Interest Rate by Credit Score Band, side by side
+  5. Top 10 Customers by Loan Amount, full width
+  6. Watchlist — Sub-Prime, High Exposure (table), full width
+
 ---
 
 ## 6. Header Conventions
@@ -113,10 +127,20 @@ Things this design system deliberately works around, not native chart types:
 | Pareto cumulative line | Partial | Combo chart, second expression with Full Accumulate + secondary axis |
 | Drill-down breadcrumb | Yes (native) | Drill-Down Group + List Box; `GetFieldSelections()` text object for a readable breadcrumb label separate from the functional list box |
 | Letter-spaced uppercase text | No | Accepted limitation, not worth fighting |
-| Row-level filtering (e.g. "only show Elevated/Outlier") | Partial, unreliable in practice on this project | Calculated dimension + Suppress-When-Null — attempted but not reliably working as of this writing; current tables show all rows with color-coding instead until this is debugged further |
+| Row-level filtering (e.g. "only show Elevated/Outlier") | Yes, via set analysis inside expressions | Calculated dimension + Suppress-When-Null was attempted first (Transaction sheet's Outlier Accounts table) and never worked reliably. **Working alternative, found via the Loans Watchlist table:** put the filter condition directly inside each expression's set analysis instead of on the dimension, e.g. `=Sum({<credit_score={"<670"}>} loan_amount)` — this reliably limits which rows contribute to each expression. Retrofit this pattern onto the Transaction sheet's Outlier Accounts table rather than continuing to debug the calculated-dimension approach. |
 
 ---
 
 ## 8. Naming Convention for Titles
 
 Object titles should describe **what's actually shown**, updated whenever the underlying logic changes — this project has had titles go stale before (e.g. "Elevated Frequency" survived after the metric was changed from transaction count to transaction volume, until caught and corrected to "Elevated Volume"). When you change what an expression measures, check the title in the same edit.
+
+---
+
+## 9. Grouping Key Caution — Never Group by a Display Name Alone
+
+Found on the Loans sheet's "Top 10 Customers by Loan Amount" chart: grouping by `fullname` silently merged different people's loan totals together, because this dataset has multiple distinct `customer_id`s sharing the same generated name (e.g. several different "Aaron Cruz" records) — confirmed via a `HAVING COUNT(DISTINCT customer_id) > 1` check, which returned dozens of collisions.
+
+**Rule going forward:** any dimension built on a human-readable name (`fullname`, `merchant_name`, etc.) must be checked for uniqueness before trusting it as a grouping key. If collisions exist, group by the real primary key (`customer_id`) combined with the name, e.g. `=customer_id & ' — ' & fullname`, not the name alone — even if the name is what should be *displayed*.
+
+**Known limitation with this fix, still unresolved:** attempting to show a clean name-only label (via a `Label` override set to `=Only(fullname)`) while keeping `customer_id` in the grouping dimension did not work as expected in this QlikView version — the Label setting turned out to be tied to Legend display, not the axis text, and unchecking Legend disabled Label entirely rather than revealing a separate axis-label control. As of this writing, the chart displays the full `customer_id — fullname` string on the axis rather than a clean name; a data-label / text-on-axis approach was proposed as the next thing to try but not yet confirmed working.
